@@ -1,5 +1,6 @@
 import numpy as np
 import gym
+import matplotlib.pyplot as plt
 
 # Creating the environment
 env = gym.make("MountainCar-v0")
@@ -7,8 +8,8 @@ env = gym.make("MountainCar-v0")
 # Parameters
 LEARNING_RATE = 0.1
 DISCOUNT = 0.95
-EPISODES = 30000
-DISP_FREQ = 2000
+EPISODES = 2000
+DISP_FREQ = 500
 
 # Exploration settings
 epsilon = 1  # not a constant, qoing to be decayed
@@ -23,11 +24,16 @@ DISCRETE_OS_WIN_SIZE = (env.observation_space.high - env.observation_space.low)/
 # initializing the q-table with the appropriate size
 q_table = np.random.uniform(low=-2, high=0, size=(DISCRETE_OS_SIZE + [env.action_space.n]))
 
+#
+ep_rewards = []
+aggr_ep_rewards = {'ep': [], 'avg': [], 'min': [], 'max':[]}
+
 def get_discrete_state(state):
 	discrete_state = (state - env.observation_space.low)/DISCRETE_OS_WIN_SIZE
 	return tuple(discrete_state.astype(np.int))
 
 for episode in range(EPISODES):
+	episode_reward = 0
 	if episode % DISP_FREQ == 0:
 		render = True
 		print(episode)
@@ -49,6 +55,7 @@ for episode in range(EPISODES):
 			action = np.random.randint(0, env.action_space.n)
 
 		new_state, reward, done, _ = env.step(action)
+		episode_reward += reward
 		new_discrete_state = get_discrete_state(new_state)
 
 		if render:
@@ -71,8 +78,25 @@ for episode in range(EPISODES):
 		# update state
 		discrete_state = new_discrete_state
 
-		# Decaying is being done every episode if episode number is within decaying range
-		if END_EPSILON_DECAYING >= episode >= START_EPSILON_DECAYING:
-			epsilon -= epsilon_decay_value
+	# Decaying is being done every episode if episode number is within decaying range
+	if END_EPSILON_DECAYING >= episode >= START_EPSILON_DECAYING:
+		epsilon -= epsilon_decay_value
+
+	ep_rewards.append(episode_reward)
+
+	if not episode % DISP_FREQ:
+		average_reward = sum(ep_rewards[-DISP_FREQ:])/len(ep_rewards[-DISP_FREQ:])
+		aggr_ep_rewards['ep'].append(episode)
+		aggr_ep_rewards['avg'].append(average_reward)
+		aggr_ep_rewards['min'].append(min(ep_rewards[-DISP_FREQ:]))
+		aggr_ep_rewards['max'].append(max(ep_rewards[-DISP_FREQ:]))
+
+		print(f"Episode {episode} avg: {average_reward} min {min(ep_rewards[-DISP_FREQ:])} max: {max(ep_rewards[-DISP_FREQ:])}")
 
 env.close()
+
+plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['avg'], label="average rewards")
+plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['max'], label="max rewards")
+plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['min'], label="min rewards")
+plt.legend(loc=4)
+plt.show()
